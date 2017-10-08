@@ -4,17 +4,16 @@ from botocore.handlers import disable_signing
 from botocore.exceptions import ClientError
 from uuid import uuid4
 
-from run import app
-
 
 class S3Client:
+    s3_bucket = 'isstestbucket'
+
     def __init__(self):
         self.s3 = boto3.resource('s3')
         self.s3.meta.client.meta.events.register(
             'choose-signer.s3.*',
             disable_signing
         )
-        self.s3_bucket = app.config['S3_BUCKET']
 
     def download_file(self, file_name):
         tmp_file = uuid4().hex
