@@ -36,12 +36,15 @@ class MP3ToWAVHandler:
             'wav_target_key': {'type': 'string', 'required': True}
         }
 
-        if not validator.validate(request.json, validation_schema):
+        if not validator.validate(request.json or {} , validation_schema):
             return jsonify(validator.errors), 400
 
         client = S3Client()
 
         mp3_tmp = client.download_file(mp3_key)
+        if not mp3_tmp:
+            return jsonify({'error': 'File is missing.'}), 404
+
         mp3 = AudioSegment.from_mp3(mp3_tmp)
 
         wav_tmp = self.storage_path % uuid4().hex

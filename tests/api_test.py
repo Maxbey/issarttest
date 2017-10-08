@@ -29,7 +29,9 @@ class EveTestCase(unittest.TestCase):
         return json.loads(str(response_data, 'utf-8'))
 
 
-class AuthTestMixin:
+class WAVInfoAPITest(EveTestCase):
+    url = '/wav-info/%s'
+
     def test_attempt_to_access_without_header(self):
         response = self.app.get(self.url % 'key')
 
@@ -38,14 +40,10 @@ class AuthTestMixin:
     def test_attempt_to_access_invalid_header(self):
         response = self.app.get(
             self.url % 'key',
-            headers = {'Authorization': 'something'}
+            headers={'Authorization': 'something'}
         )
 
         self.assertEquals(response.status_code, 401)
-
-
-class WAVInfoAPITest(AuthTestMixin, EveTestCase):
-    url = '/wav-info/%s'
 
     def test_file_not_found(self):
         self.s3_client_mock.download_file.return_value = None
@@ -84,3 +82,85 @@ class WAVInfoAPITest(AuthTestMixin, EveTestCase):
 
         self.assertEquals(response.status_code, 200)
         self.assertEquals(expected_info, self.deserialize(response.data))
+
+
+class MP3ToWAVAPITest(EveTestCase):
+    url = '/mp3-to-wav/%s'
+
+    def test_attempt_to_access_without_header(self):
+        response = self.app.post(self.url % 'key')
+
+        self.assertEquals(response.status_code, 401)
+
+    def test_attempt_to_access_invalid_header(self):
+        response = self.app.post(
+            self.url % 'key',
+            headers={'Authorization': 'something'}
+        )
+
+        self.assertEquals(response.status_code, 401)
+
+    def test_empty_payload(self):
+        response = self.app.post(
+            self.url % 'key',
+            **self.auth_header
+        )
+
+        self.assertEquals(response.status_code, 400)
+        self.assertEquals(
+            self.deserialize(response.data),
+            {'wav_target_key': 'required field'}
+        )
+
+    def test_file_not_found(self):
+        self.s3_client_mock.download_file.return_value = None
+        mp3_key = 'mp3'
+
+        response = self.app.post(
+            self.url % mp3_key,
+            data=json.dumps({'wav_target_key': 'key'}),
+            content_type='application/json',
+            **self.auth_header
+        )
+
+        self.s3_client_mock.download_file.assert_called_once_with(mp3_key)
+        self.assertEquals(response.status_code, 404)
+        self.assertEquals(
+            {'error': 'File is missing.'},
+            self.deserialize(response.data)
+        )
+
+    @patch('handlers.os.path.getsize')
+    @patch('handlers.uuid4')
+    def test_conversion(self, uuid4_mock, getsize):
+        mp3 = Mock()
+        wav = Mock(duration_seconds=3.33)
+        mp3_key = 'mp3'
+        uuid4_mock.return_value = Mock(hex='wav_tmp')
+        getsize.return_value = 123
+        self.s3_client_mock.download_file.return_value = 'mp3_tmp'
+        self.audio_segment_mock.from_mp3.return_value = mp3
+        self.audio_segment_mock.from_wav.return_value = wav
+
+        expected_response = {
+            'file_size': getsize.return_value,
+            'execution_time': wav.duration_seconds
+
+        }
+
+        response = self.app.post(
+            self.url % mp3_key,
+            data=json.dumps({'wav_target_key': 'target_key'}),
+            content_type='application/json',
+            **self.auth_header
+        )
+
+        self.s3_client_mock.download_file.assert_called_once_with(mp3_key)
+        self.audio_segment_mock.from_mp3.assert_called_once_with('mp3_tmp')
+        mp3.export.assert_called_once_with('/tmp/wav_tmp', format='wav')
+        self.s3_client_mock.upload_file.assert_called_once_with(
+            '/tmp/wav_tmp', 'target_key'
+        )
+
+        self.assertEquals(response.status_code, 201)
+        self.assertEquals(self.deserialize(response.data), expected_response)
