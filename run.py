@@ -1,7 +1,7 @@
 import sys
 
 from eve import Eve
-from handlers import WAVInfoHandler
+from handlers import WAVInfoHandler, MP3ToWAVHandler
 
 app = Eve()
 
@@ -13,7 +13,7 @@ def get_wav_info(wav_key):
 
 @app.route('/mp3-to-wav/<string:mp3_key>', methods=['POST'])
 def post_mp3_to_wav(mp3_key):
-    pass
+    return MP3ToWAVHandler.post(mp3_key)
 
 
 if __name__ == '__main__':

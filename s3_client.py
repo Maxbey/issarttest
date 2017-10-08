@@ -7,6 +7,7 @@ from uuid import uuid4
 
 class S3Client:
     s3_bucket = 'isstestbucket'
+    storage_path = '/tmp/%s'
 
     def __init__(self):
         self.s3 = boto3.resource('s3')
@@ -16,15 +17,15 @@ class S3Client:
         )
 
     def download_file(self, file_name):
-        tmp_file = uuid4().hex
+        storage_path = self.storage_path % uuid4().hex
         try:
             self.s3.Bucket(self.s3_bucket).download_file(
-                file_name, tmp_file
+                file_name, storage_path
             )
         except ClientError:
             return None
 
-        return tmp_file
+        return storage_path
 
     def upload_file(self, path, target_name):
         self.s3.Bucket(self.s3_bucket).upload_file(
