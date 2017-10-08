@@ -5,4 +5,4 @@ devinstall:
 	pip install -U -r requirements/test.txt
 
 test:
-	nosetests --with-coverage
+	nosetests --with-coverage --nologcapture
