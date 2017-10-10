@@ -30,7 +30,7 @@ class MP3ToWAVHandler:
     storage_path = '/tmp/%s'
 
     @classmethod
-    def post(self, mp3_key):
+    def post(cls, mp3_key):
         validator = Validator()
         validation_schema = {
             'wav_target_key': {'type': 'string', 'required': True}
@@ -47,7 +47,7 @@ class MP3ToWAVHandler:
 
         mp3 = AudioSegment.from_mp3(mp3_tmp)
 
-        wav_tmp = self.storage_path % uuid4().hex
+        wav_tmp = cls.storage_path % uuid4().hex
         mp3.export(wav_tmp, format="wav")
         wav = AudioSegment.from_wav(wav_tmp)
 
